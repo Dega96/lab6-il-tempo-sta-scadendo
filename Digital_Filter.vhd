@@ -244,36 +244,37 @@ architecture behav of Digital_filter is
 				
 				WHEN AB				=> 
 				                  --   address_scelto <=( cnt(11 downto 2));
-										cnt_en <= '0'; --!|!!!!!
-											
-										
-											clear_cnt<= '0';
-											wr_n_rd_A <= '1'; LD_R_1 <= '1';CS_A <= '1'; Add_n_Sub <= '0'; Sel_1 <= "00"; EN_Y_1 <= '1';
+										    cnt_en <= '0'; --!|!!!!!
+											 clear_cnt<= '0';
+											wr_n_rd_A <= '1'; LD_R_1 <= '1';CS_A <= '1'; Add_n_Sub <= '0'; EN_Y_1 <= '1';
 				
 				WHEN MINUS_D_WR_B => ----LUI SCRIVE DA 1 IN POI
 											address_b <= (unsigned(cnt(9 downto 0)-1));
-											CS_A <= '0'; LD_R_1 <= '0'; EN_Y_1 <= '1'; Add_n_Sub <= '1'; Sel_1 <= "01";
+											CS_A <= '0'; LD_R_1 <= '0'; EN_Y_1 <= '1'; Sel_1 <= "00";
 											CS_B <= '1';											 
 				
 				WHEN MINUS_D => 		
-											CS_A <= '0'; LD_R_1 <= '0'; EN_Y_1 <= '1'; Add_n_Sub <= '1'; Sel_1 <= "01"; 
+											CS_A <= '0'; LD_R_1 <= '0'; EN_Y_1 <= '1';  Sel_1 <= "00"; 
 				
-				WHEN PLUS_Y  => 		Sel_1 <= "10"; Add_n_Sub <= '0'; CS_B <= '0';
+				WHEN PLUS_Y  => 		Sel_1 <= "01"; Add_n_Sub <= '0'; CS_B <= '0';
 				
 				WHEN MINUS_Y =>
-											Sel_1 <= "10"; CS_B <= '0';
+											Sel_1 <= "01"; CS_B <= '0'; Add_n_Sub <= '1';
 				
 				WHEN LOWER_SAT 	=>
+											Sel_1 <= "10";
 											Sel_2 <= "10";		
 											
 											cnt_en <= '1'; --!|!!!!!
 						
 				
 				WHEN GREATER_SAT	=>
+											Sel_1 <= "10";
 											Sel_2 <= "01";
 											cnt_en <= '1'; --!|!!!!!
 				
 				WHEN EQUAL_SAT		=>
+											Sel_1 <= "10";
 											Sel_2 <= "00";
 											cnt_en <= '1'; --!|!!!!!
 				
@@ -283,6 +284,7 @@ architecture behav of Digital_filter is
 											Done <= '1'; EN_Y_1 <= '0';
 				WHEN END_WRITE_MEM_B  =>
 												Wr_n_rd_b<='1';
+												
 												
 				                   
 
