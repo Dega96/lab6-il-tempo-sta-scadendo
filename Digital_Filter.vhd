@@ -7,16 +7,17 @@ Entity Digital_Filter is ------Da aggiustare l'asm chart per i nuovi controlli
 	port (
 				clk, start, rst	: in std_logic;
 				Data_IN				: in signed( 7 downto 0);
-				M 						: out signed( 7 downto 0);
-				Data_out_mem_B		: out signed (7 downto 0);
-				M_disp				: out std_logic 
+				M 						: out std_logic_vector( 7 downto 0);
+				--M_disp				: out std_logic;
+				Data_out_mem_B		: out std_logic_vector (7 downto 0);
+				write_out_done		: out std_logic 
 			);
 end Digital_Filter;
 
 architecture behav of Digital_filter is
 
 --dichiarazione degli stati
-	TYPE State_type is (IDLE, WRITE_IN_A, AB, MINUS_D_WR_B, MINUS_D, PLUS_Y, MINUS_Y, LOWER_SAT, GREATER_SAT, EQUAL_SAT, AVERAGE, ATTESA);
+	TYPE State_type is (IDLE, WRITE_IN_A, ATTESA, AB, MINUS_D_WR_B, MINUS_D, PLUS_Y, MINUS_Y, LOWER_SAT, GREATER_SAT, EQUAL_SAT, AVERAGE, END_WRITE_MEM_B);
 	Signal stato	:State_type;
 --dichiarazione dei segnali per gli stati
 	signal TC : std_logic; 
@@ -137,6 +138,8 @@ architecture behav of Digital_filter is
 		 );
 	end component;
 	
+
+	
 	--componente mux per il saturatore
 	component mux_4_to_1_8bit is
 	port(
@@ -212,7 +215,9 @@ architecture behav of Digital_filter is
 				WHEN EQUAL_SAT    => if ( TC='1') then stato <= AVERAGE; else stato <= AB; end if;
 				
 				--WHEN AVERAGE		=> if cnt_2='1' then  if start='1' then stato <= AVERAGE; else stato <= IDLE; end if;  else stato <=AVERAGE; end if;	
-				WHEN AVERAGE		=> if cnt_0='1' then  if start='1' then stato <= AVERAGE; else stato <= IDLE; end if;  else stato <=AVERAGE; end if;	
+				WHEN AVERAGE		=> if cnt_0='1' then stato <= END_WRITE_MEM_B ; else stato <= AVERAGE; end if;
+			   
+				WHEN END_WRITE_MEM_B => if start='1' then stato<=END_WRITE_MEM_B; else stato<= IDLE; end if; 	
 			end case;
 		end if;
 	end process;
@@ -231,6 +236,11 @@ architecture behav of Digital_filter is
 				WHEN WRITE_IN_A 	=> 
 											--Address_scelto <= (cnt(9 downto 0));
 											wr_n_rd_A <= '0'; CS_A <= '1'; cnt_EN <= '1';
+				
+				WHEN Attesa 		=> 
+											
+											clear_cnt <= '1'; cs_a <= '0'; wr_n_rd_A <= '0'; 
+											cnt_en <= '0'; --!|!!!!!
 				
 				WHEN AB				=> 
 				                  --   address_scelto <=( cnt(11 downto 2));
@@ -268,14 +278,15 @@ architecture behav of Digital_filter is
 											cnt_en <= '1'; --!|!!!!!
 				
 				WHEN AVERAGE		=> 
-				CS_b <= '1';
+				                     CS_b <= '1';
 				                     Address_b<= "1111111111";
 											Done <= '1'; EN_Y_1 <= '0';
+				WHEN END_WRITE_MEM_B  =>
+												Wr_n_rd_b<='1';
+												
+				                   
+
 				
-				WHEN Attesa 		=> 
-											
-											clear_cnt <= '1'; cs_a <= '0'; wr_n_rd_A <= '0'; 
-											cnt_en <= '0'; --!|!!!!!
 				
 			end case;
 	      end process;			
@@ -357,7 +368,7 @@ architecture behav of Digital_filter is
 	
 	--descrizione della Mem_B
 	Mem_B:	SRAM_SW_AR_1024x8_DEC port map (Address => address_b , Data_in => y_sat, data_out => y_mem_B, CS => CS_B,  write_0_read_1=> wr_n_rd_B, clock => clk);
-	Data_out_mem_B <= y_mem_B;
+	Data_out_mem_B <= std_logic_vector(y_mem_B);
 	--Address_b<=unsigned(cnt(11 downto 2)-1);--!!!!!!!!!!!!!!!!!!!!
 	
 	--descrizione della struttura che calcola la media
@@ -371,16 +382,16 @@ architecture behav of Digital_filter is
 	Data_Media_IN <= data_sum_in(17 downto 10);
 	Reg_M 	  : 	Reg_8_bit port map( D => Data_Media_in, Rest_1 => Rst, Clock => clk, Q => Data_media_out, EN_1 => DONE);
 	--associazione del dato di media alla porta di uscita
-	M <= Data_media_out;
+	M <= std_logic_vector(Data_media_out);
 	
 
 	--descrizione della struttura che mi permette un'eventuale lettura dei dati dalla mem B...puramente combinatoria
-	process (done, cnt)
-	begin
-	if ((DONE and cnt(0) and cnt(1))='1') then
-		M_disp_sgn <= '1';
-	end if;
-	end process;
-	M_disp<= M_disp_sgn;
-	
-end behav;
+--	process (done, cnt)
+--	begin
+--	if ((DONE and cnt(0) and cnt(1))='1') then
+--		M_disp_sgn <= '1';
+--	end if;
+--	end process;
+--	M_disp<= M_disp_sgn;
+
+	end behav;
