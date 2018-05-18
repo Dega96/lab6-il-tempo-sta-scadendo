@@ -1,0 +1,51 @@
+pseudocodice
+
+cnt=0;
+
+for cnt in 0 to 1023
+
+	mem_A(cnt)= data_in;
+end for;
+
+for cnt in 0 to 4095
+ switch ( cnt(2 downto 0) ) is:
+    case  0:
+	reg_D=reg_C; reg_C=reg_B;  reg_B=reg_A;
+        reg_A=mem_A(cnt(11 downto 2));
+	y=reg_A/4 + reg_B;
+        cnt++;
+    break;    
+    case  1:
+        if( cnt!=0 )
+        mem_B(cnt(-1)=y;
+        end if;
+        Y
+    break;
+    case  2:
+      if (cnt(0)==1)
+         y=-y;
+      end if;
+      
+    case 3:
+     
+     
+    
+    
+
+    
+	
+	
+	
+    	
+
+
+
+if( cnt(2 downto 0)=00 )
+        
+  elsif (cnt(2 downto 0)=01 )
+        
+     
+    
+
+    
+     
