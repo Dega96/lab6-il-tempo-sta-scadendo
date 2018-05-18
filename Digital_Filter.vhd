@@ -3,7 +3,7 @@ USE ieee.std_logic_1164.all;
 USE ieee.numeric_std.all;
 use ieee.std_logic_unsigned.all;
 
-Entity Digital_Filter is 
+Entity Digital_Filter is ------Da aggiustare l'asm chart per i nuovi controlli
 	port (
 				clk, start, rst	: in std_logic;
 				Data_IN				: in signed( 7 downto 0);
@@ -19,14 +19,14 @@ architecture behav of Digital_filter is
 	TYPE State_type is (IDLE, WRITE_IN_A, AB, MINUS_D_WR_B, MINUS_D, PLUS_Y, MINUS_Y, LOWER_SAT, GREATER_SAT, EQUAL_SAT, AVERAGE, ATTESA);
 	Signal stato	:State_type;
 --dichiarazione dei segnali per gli stati
-	signal TC1, TC2 : std_logic; --il primo serve per uscire dallo stato di scrittura in A...il secondo per fare la media
+	signal TC : std_logic; 
 	signal active_mem_B: std_logic; -- attiva lo stato  MINUS_D_WR_B per scrivere in B, si attiva dal secondo ciclo in poi
 	signal rst_cnt, clear_cnt : std_logic;
 	
 
 -- dichiarazione dei segnali per il contatore
 	signal cnt_en	: std_logic;
-	signal cnt	: unsigned(11 downto 0); -------------------------
+	signal cnt	: unsigned(9 downto 0); --!!!!!!!!!!!
 	signal cnt_2, cnt_0: std_logic;
 
 -- dichiarazione dei segnali per la Mem_A
@@ -120,7 +120,7 @@ architecture behav of Digital_filter is
 
 	--contatore
 	component counter_12_bit_sincrono is
-		generic ( N : integer:=12);
+		generic ( N : integer:=10);
 		port 
 			(
 			Cnt_EN_1, CLK, Clear_1: in std_logic; 
@@ -188,24 +188,37 @@ architecture behav of Digital_filter is
 		elsif(clk' event And clk='1') then
 			CASE stato is
 				WHEN IDLE         => if start = '0' then stato <= IDLE; else stato <= WRITE_IN_A; end if;
-				WHEN WRITE_IN_A   => if TC1 = '0' then stato <= WRITE_IN_A; else stato <= ATTESA;end if;-- else stato <= AB ;end if;     --clear_cnt <= '0'; else stato <= AB; clear_cnt <= '1';end if;
+				WHEN WRITE_IN_A   => if TC = '0' then stato <= WRITE_IN_A; else stato <= ATTESA;end if;-- else stato <= AB ;end if;     --clear_cnt <= '0'; else stato <= AB; clear_cnt <= '1';end if;
 				
 				when ATTESA       => stato <= AB;
 				WHEN AB				=> if active_mem_B='1' then stato <= MINUS_D_WR_B; else stato <= MINUS_D; end if; --clear_cnt <= '0';
-				WHEN MINUS_D_WR_B => if cnt_2='1' then stato <= MINUS_Y; else stato <= PLUS_Y; end if;
-				WHEN MINUS_D		=> if cnt_2='1' then stato <= MINUS_Y; else stato <= PLUS_Y; end if;	
+				--WHEN MINUS_D_WR_B => if cnt_2='1' then stato <= MINUS_Y; else stato <= PLUS_Y; end if;
+				--WHEN MINUS_D		=> if cnt_2='1' then stato <= MINUS_Y; else stato <= PLUS_Y; end if;	
+				
+				WHEN MINUS_D_WR_B => if cnt_0='1' then stato <= MINUS_Y; else stato <= PLUS_Y; end if;
+				WHEN MINUS_D		=> if cnt_0='1' then stato <= MINUS_Y; else stato <= PLUS_Y; end if;	
+				
+				
 				WHEN PLUS_Y       => if ( A='1' and B='0') then  stato <= LOWER_SAT; elsif ( A='0' and B='1') then stato <= GREATER_SAT; else stato<= EQUAL_SAT; end if;
 				WHEN MINUS_Y		=> if ( A='1' and B='0') then  stato <= LOWER_SAT; elsif ( A='0' and B='1') then stato <= GREATER_SAT; else stato<= EQUAL_SAT; end if;
-				WHEN LOWER_SAT    => if ( TC2='1') then stato <= AVERAGE; else stato <= AB; end if;
-				WHEN GREATER_SAT  => if ( TC2='1') then stato <= AVERAGE; else stato <= AB; end if;
-				WHEN EQUAL_SAT    => if ( TC2='1') then stato <= AVERAGE; else stato <= AB; end if;
-				WHEN AVERAGE		=> if cnt_2='1' then  if start='1' then stato <= AVERAGE; else stato <= IDLE; end if;  else stato <=AVERAGE; end if;	
+				
+				--WHEN LOWER_SAT    => if ( TC2='1') then stato <= AVERAGE; else stato <= AB; end if;--1111111
+				WHEN LOWER_SAT    => if ( TC='1') then stato <= AVERAGE; else stato <= AB; end if;
+				
+				--WHEN GREATER_SAT  => if ( TC2='1') then stato <= AVERAGE; else stato <= AB; end if;
+				WHEN GREATER_SAT  => if ( TC='1') then stato <= AVERAGE; else stato <= AB; end if;
+				
+				--WHEN EQUAL_SAT    => if ( TC2='1') then stato <= AVERAGE; else stato <= AB; end if;
+				WHEN EQUAL_SAT    => if ( TC='1') then stato <= AVERAGE; else stato <= AB; end if;
+				
+				--WHEN AVERAGE		=> if cnt_2='1' then  if start='1' then stato <= AVERAGE; else stato <= IDLE; end if;  else stato <=AVERAGE; end if;	
+				WHEN AVERAGE		=> if cnt_0='1' then  if start='1' then stato <= AVERAGE; else stato <= IDLE; end if;  else stato <=AVERAGE; end if;	
 			end case;
 		end if;
 	end process;
 	
 	
-	FSM_outputs: Process(stato, start, cnt)
+	FSM_outputs: Process(stato, start)
 		begin	
       		
 			CASE stato is
@@ -216,21 +229,24 @@ architecture behav of Digital_filter is
 										    
 				
 				WHEN WRITE_IN_A 	=> 
-											Address_scelto <= (cnt(9 downto 0));
+											--Address_scelto <= (cnt(9 downto 0));
 											wr_n_rd_A <= '0'; CS_A <= '1'; cnt_EN <= '1';
 				
 				WHEN AB				=> 
-				                     address_scelto <=( cnt(11 downto 2));
+				                  --   address_scelto <=( cnt(11 downto 2));
+										cnt_en <= '0'; --!|!!!!!
 											
 										
 											clear_cnt<= '0';
 											wr_n_rd_A <= '1'; LD_R_1 <= '1';CS_A <= '1'; Add_n_Sub <= '0'; Sel_1 <= "00"; EN_Y_1 <= '1';
 				
-				WHEN MINUS_D_WR_B =>
+				WHEN MINUS_D_WR_B => ----LUI SCRIVE DA 1 IN POI
+											address_b <= (unsigned(cnt(9 downto 0)-1));
 											CS_A <= '0'; LD_R_1 <= '0'; EN_Y_1 <= '1'; Add_n_Sub <= '1'; Sel_1 <= "01";
 											CS_B <= '1';											 
 				
-				WHEN MINUS_D => 		CS_A <= '0'; LD_R_1 <= '0'; EN_Y_1 <= '1'; Add_n_Sub <= '1'; Sel_1 <= "01"; 
+				WHEN MINUS_D => 		
+											CS_A <= '0'; LD_R_1 <= '0'; EN_Y_1 <= '1'; Add_n_Sub <= '1'; Sel_1 <= "01"; 
 				
 				WHEN PLUS_Y  => 		Sel_1 <= "10"; Add_n_Sub <= '0'; CS_B <= '0';
 				
@@ -238,22 +254,28 @@ architecture behav of Digital_filter is
 											Sel_1 <= "10"; CS_B <= '0';
 				
 				WHEN LOWER_SAT 	=>
-											Sel_2 <= "10";									
+											Sel_2 <= "10";		
+											
+											cnt_en <= '1'; --!|!!!!!
 						
 				
 				WHEN GREATER_SAT	=>
 											Sel_2 <= "01";
+											cnt_en <= '1'; --!|!!!!!
 				
 				WHEN EQUAL_SAT		=>
 											Sel_2 <= "00";
+											cnt_en <= '1'; --!|!!!!!
 				
 				WHEN AVERAGE		=> 
-				                     Address_b<=
+				CS_b <= '1';
+				                     Address_b<= "1111111111";
 											Done <= '1'; EN_Y_1 <= '0';
 				
 				WHEN Attesa 		=> 
 											
-											clear_cnt <= '1'; cs_a <= '0'; wr_n_rd_A <= '0';
+											clear_cnt <= '1'; cs_a <= '0'; wr_n_rd_A <= '0'; 
+											cnt_en <= '0'; --!|!!!!!
 				
 			end case;
 	      end process;			
@@ -262,16 +284,19 @@ architecture behav of Digital_filter is
 	
 	
 	--descrizione signal per switch stati: MINUS_D_WR_B, MINUS_D
-	active_mem_B <= (std_logic(cnt(11)) or std_logic( cnt(10)) or std_logic(cnt(9)) or std_logic(cnt(8))
+	active_mem_B <= --(std_logic(cnt(11)) or std_logic( cnt(10)) or 
+						(std_logic(cnt(9)) or std_logic(cnt(8))
 						or std_logic(cnt(7)) or std_logic(cnt(6)) or std_logic(cnt(5))
-	   				or std_logic(cnt(4)) or std_logic(cnt(3)) or std_logic(cnt(2)));
-	TC1 <= ( std_logic(cnt(9)) and std_logic(cnt(8))
+	   				or std_logic(cnt(4)) or std_logic(cnt(3)) or std_logic(cnt(2)) or std_logic(cnt(1)) or std_logic(cnt(0)));
+	TC <= ( std_logic(cnt(9)) and std_logic(cnt(8))
 						and std_logic(cnt(7)) and std_logic(cnt(6)) and std_logic(cnt(5))
 	   				and std_logic(cnt(4)) and std_logic(cnt(3)) and std_logic(cnt(2)) and std_logic(cnt(1)) and std_logic(cnt(0)) );
-	TC2 <= ( std_logic(cnt(11)) and std_logic(cnt(10)) and std_logic(cnt(9)) and std_logic(cnt(8))
-						and std_logic(cnt(7)) and std_logic(cnt(6)) and std_logic(cnt(5))
-	   				and std_logic(cnt(4)) and std_logic(cnt(3)) and std_logic(cnt(2)));
-	cnt_2 <= std_logic(cnt(2));
+	
+	--TC2 <= ( std_logic(cnt(11)) and std_logic(cnt(10)) and std_logic(cnt(9)) and std_logic(cnt(8))
+	--					and std_logic(cnt(7)) and std_logic(cnt(6)) and std_logic(cnt(5))
+	 --  				and std_logic(cnt(4)) and std_logic(cnt(3)) and std_logic(cnt(2)));
+	--cnt_2 <= std_logic(cnt(2));
+	
 	cnt_0 <= std_logic(cnt(0));
 	
 	
@@ -291,21 +316,10 @@ architecture behav of Digital_filter is
 	
 	-- Descrizione della Mem_A
 	data_in_Mem_A <= Data_IN;
-	--Mem_A:	SRAM_SW_AR_1024x8_DEC port map (Address => std_logic_vector(cnt(9 downto 0)), Data_in => data_in_Mem_A, data_out => data_out_mem_A, CS => CS_A, Write_0_read_1=> wr_n_rd_A, clock => clk);
-	Mem_A:	SRAM_SW_AR_1024x8_DEC port map (Address => Address_scelto, Data_in => data_in_Mem_A, data_out => data_out_mem_A, CS => CS_A, Write_0_read_1=> wr_n_rd_A, clock => clk);
+	Mem_A:	SRAM_SW_AR_1024x8_DEC port map (Address => (cnt(9 downto 0)), Data_in => data_in_Mem_A, data_out => data_out_mem_A, CS => CS_A, Write_0_read_1=> wr_n_rd_A, clock => clk);
+	--Mem_A:	SRAM_SW_AR_1024x8_DEC port map (Address => Address_scelto, Data_in => data_in_Mem_A, data_out => data_out_mem_A, CS => CS_A, Write_0_read_1=> wr_n_rd_A, clock => clk);
 	
---	process( pippo)
---	begin
---		if( pippo = '1') then
---		
---		Address_a <=  cnt(11 downto 2);
---			--address<= address_b;
---		else
---		Address_a <=  cnt(9 downto 0);
---			--address <= address_a;
---		end if;
---	end process;
---	address <= address_a;
+
 
 --mux_address:  mux_2_to_1_Address port map (address_a => address_a, address_b => address_b,  sel => pippo, address =>address_scelto);
 		
@@ -342,9 +356,9 @@ architecture behav of Digital_filter is
 	mux_3: mux_4_to_1_8bit port map( sel => sel_2, y1 => y_dopo(7 downto 0), y2 => "01111111", y3 => "10000000", y4 => y_dopo( 7 downto 0), y_sat => y_sat);
 	
 	--descrizione della Mem_B
-	Mem_B:	SRAM_SW_AR_1024x8_DEC port map (Address => Address_b, Data_in => y_sat, data_out => y_mem_B, CS => CS_B,  write_0_read_1=> wr_n_rd_B, clock => clk);
+	Mem_B:	SRAM_SW_AR_1024x8_DEC port map (Address => address_b , Data_in => y_sat, data_out => y_mem_B, CS => CS_B,  write_0_read_1=> wr_n_rd_B, clock => clk);
 	Data_out_mem_B <= y_mem_B;
-	Address_b<=unsigned(cnt(11 downto 2)-1);
+	--Address_b<=unsigned(cnt(11 downto 2)-1);--!!!!!!!!!!!!!!!!!!!!
 	
 	--descrizione della struttura che calcola la media
 	--aumento del parallelismo del dato letto della memoria A
